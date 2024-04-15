@@ -1,127 +1,105 @@
 from lumibot.brokers import Alpaca
 from lumibot.backtesting import YahooDataBacktesting
 from lumibot.strategies.strategy import Strategy
-from datetime import datetime, timedelta  # Import statement corrected
+from datetime import datetime, timedelta
 
 from alpaca_trade_api import REST
-from finbert_utils import estimate_sentiment
+from sentimentAnalyzer import estimate_sentiment
 
-API_KEY = "PK1P28OTG8GV0LVJPCNL"
-API_SECRET = "nRnALBIz3zF6QwIjyUv3WmN4yAngQ169FBxpev91"
-BASE_URL = "https://paper-api.alpaca.markets/v2"
+# Constants for API credentials and URL (you need to replace placeholders with actual values).
+API_KEY = "API_KEY"
+API_SECRET = "API_SECRET"
+BASE_URL = "BASE_URL"
 
+# Credentials for Alpaca API, specifying that it's a paper trading account.
 ALPACA_CREDS = {
     "API_KEY": API_KEY,
     "API_SECRET": API_SECRET,
-    "PAPER": True  # Indicates this is a paper trading account, update if using real money
+    "PAPER": True
 }
 
 class MLTrader(Strategy):
+    """
+    A trading strategy class that utilizes machine learning to decide when to buy or sell stocks based on sentiment analysis.
+    """
     def initialize(self, symbol="SPY", cash_at_risk=0.5):
         """
-        Initializes the MLTrader strategy.
-
-        Parameters:
-        - symbol (str): Symbol to trade, default is "SPY".
-        - cash_at_risk (float): Percentage of cash to risk per trade, default is 0.5.
+        Initializes the MLTrader strategy with the trading symbol and the amount of cash to risk.
         """
         self.symbol = symbol
-        self.sleeptime = "24H"  # Consider revising this for more dynamic behavior
+        self.sleeptime = "24H"  # Time between each trading decision. Modify for more frequent trading decisions.
         self.last_trade = None
         self.cash_at_risk = cash_at_risk
         self.api = REST(base_url=BASE_URL, key_id=API_KEY, secret_key=API_SECRET)
 
     def position_sizing(self):
         """
-        Calculates position size based on risk management rules.
-
-        Returns:
-        - cash (float): Available cash.
-        - last_price (float): Last price of the symbol.
-        - quantity (int): Calculated quantity to trade.
+        Calculates the quantity of stocks to buy or sell based on the available cash and risk management rules.
         """
         cash = self.get_cash()
         last_price = self.get_last_price(self.symbol)
-        quantity = round(cash * self.cash_at_risk / last_price, 0)
+        quantity = int(cash * self.cash_at_risk / last_price)  # Use integer quantity for orders
         return cash, last_price, quantity
 
     def get_dates(self):
         """
-        Calculates the date range for sentiment analysis.
-
-        Returns:
-        - today (str): Today's date in 'YYYY-MM-DD' format.
-        - three_days_prior (str): Three days prior to today's date in 'YYYY-MM-DD' format.
+        Determines the date range for conducting sentiment analysis.
         """
         today = self.get_datetime()
-        three_days_prior = today - timedelta(days=3)  # Updated timedelta usage
+        three_days_prior = today - timedelta(days=3)
         return today.strftime('%Y-%m-%d'), three_days_prior.strftime('%Y-%m-%d')
 
     def get_sentiment(self):
         """
-        Fetches news and estimates sentiment for the symbol.
-
-        Returns:
-        - probability (float): Probability score of sentiment.
-        - sentiment (str): Sentiment label ('positive', 'negative', 'neutral').
+        Analyzes news headlines to determine market sentiment toward the trading symbol.
         """
         today, three_days_prior = self.get_dates()
         news = self.api.get_news(symbol=self.symbol, start=three_days_prior, end=today)
-        news = [ev.__dict__["_raw"]["headline"] for ev in news]
-        probability, sentiment = estimate_sentiment(news)
+        headlines = [event.__dict__["_raw"]["headline"] for event in news]
+        probability, sentiment = estimate_sentiment(headlines)
         return probability, sentiment
 
     def on_trading_iteration(self):
         """
-        Executes trading logic based on sentiment and risk management.
+        Executed for each trading iteration, makes buy or sell decisions based on sentiment analysis.
         """
         cash, last_price, quantity = self.position_sizing()
         probability, sentiment = self.get_sentiment()
         
         if cash > last_price: 
-            if sentiment == "positive" and probability > .999: 
+            if sentiment == "positive" and probability > 0.999: 
                 if self.last_trade == "sell": 
-                    self.sell_all() 
+                    self.sell_all()
                 order = self.create_order(
-                    self.symbol, 
-                    quantity, 
-                    "buy", 
-                    type="bracket", 
-                    take_profit_price=last_price*1.20, 
-                    stop_loss_price=last_price*.95
+                    self.symbol, quantity, "buy", type="bracket",
+                    take_profit_price=last_price*1.20,
+                    stop_loss_price=last_price*0.95
                 )
-                self.submit_order(order) 
+                self.submit_order(order)
                 self.last_trade = "buy"
-            elif sentiment == "negative" and probability > .999: 
+            elif sentiment == "negative" and probability > 0.999: 
                 if self.last_trade == "buy": 
-                    self.sell_all() 
+                    self.sell_all()
                 order = self.create_order(
-                    self.symbol, 
-                    quantity, 
-                    "sell", 
-                    type="bracket", 
-                    take_profit_price=last_price*.8, 
+                    self.symbol, quantity, "sell", type="bracket",
+                    take_profit_price=last_price*0.80,
                     stop_loss_price=last_price*1.05
                 )
-                self.submit_order(order) 
+                self.submit_order(order)
                 self.last_trade = "sell"
 
-# Define the backtesting parameters
-start_date = datetime(2022, 1, 1)  # Start date for backtesting, adjust as needed
-end_date = datetime(2023, 12, 31)  # End date for backtesting, adjust as needed
+# Define backtesting parameters with start and end dates
+start_date = datetime(2020, 1, 1)
+end_date = datetime(2024, 4, 3)
 
-# Initialize Alpaca broker with provided credentials
+# Set up the broker and strategy
 broker = Alpaca(ALPACA_CREDS)
+strategy = MLTrader(name='MLTrader', broker=broker, parameters={"symbol": "SPY", "cash_at_risk": 0.5})
 
-# Initialize MLTrader strategy with parameters
-strategy = MLTrader(name='mlstrat', broker=broker,
-                    parameters={"symbol": "SPY", 
-                                "cash_at_risk": 0.5})  # Adjust symbol and risk as needed
-
-# Perform backtesting with YahooDataBacktesting
+# Execute backtesting using Yahoo data
 strategy.backtest(
     YahooDataBacktesting,
     start_date,
     end_date,
-    parameters={"symbol": "SPY", "cash_at_risk": 0.5}  # Adjust symbol and risk as needed
+    parameters={"symbol": "SPY", "cash_at_risk": 0.5}
 )
