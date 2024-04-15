@@ -46,9 +46,9 @@ This project integrates AI, machine learning, and sentiment analysis to conduct 
 
 ## Demonstration
 
-![newplot](https://github.com/MAQ030/Trading-Bot/assets/156931518/c7a81643-6330-450a-b44a-574c8c5306d8)
+![newplot](https://github.com/MAQ030/AIStockTrader/assets/156931518/cbcc5719-d58c-4242-9d92-ebd51337b508)
 
-[Watch the demonstration video](https://github.com/MAQ030/Trading-Bot/assets/156931518/8a90e028-ce12-4dc3-a2dc-43955fa27ad4)
+https://github.com/MAQ030/AIStockTrader/assets/156931518/de958284-e53f-401d-a379-2273406b0294
 
 ### Developed By
 
