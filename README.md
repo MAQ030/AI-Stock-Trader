@@ -17,7 +17,7 @@ This project integrates AI, machine learning, and sentiment analysis to conduct 
 1. **Clone the project**
 
     ```bash
-    git clone https://github.com/MAQ030/Trading-Bot.git
+    https://github.com/MAQ030/AI-Stock-Trader.git
     ```
 
 2. **Go to the project directory**
