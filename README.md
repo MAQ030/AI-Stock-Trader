@@ -41,7 +41,7 @@ This project integrates AI, machine learning, and sentiment analysis to conduct 
 5. **Running the bot**
 
     ```bash
-    python tradingbot.py
+    python tradingBot.py
     ```
 
 ## Demonstration
